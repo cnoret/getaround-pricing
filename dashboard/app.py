@@ -4,6 +4,7 @@ This application provides an interactive dashboard for analyzing rental delays a
 It uses Streamlit for the frontend and Plotly for visualizations.
 """
 
+import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -30,6 +31,26 @@ with st.sidebar:
     )
     st.caption("Filter, explore and predict in a few clicks.")
 
+API_URL = os.environ.get("API_URL", "http://localhost:8001/predict")
+
+
+@st.cache_data
+def load_delay_data():
+    df = pd.read_csv("data/get_around_delay_analysis.csv")
+    return df[df["state"] == "ended"].dropna(
+        subset=[
+            "delay_at_checkout_in_minutes",
+            "time_delta_with_previous_rental_in_minutes",
+        ]
+    )
+
+
+@st.cache_data
+def load_pricing_data():
+    df = pd.read_csv("data/get_around_pricing_project.csv")
+    return df.drop(columns=["Unnamed: 0"], errors="ignore")
+
+
 # Tabs for different analyses
 tab1, tab2, tab3 = st.tabs(
     ["⏱️ Delay Analysis", "💰 Pricing Analysis", "💸 Price Prediction"]
@@ -40,19 +61,12 @@ with tab1:
     st.header("⏱️ Delay Analysis")
     st.info("Analysis of vehicle return delays on Getaround.")
 
-    # Load and filter delay data
-    df = pd.read_csv("data/get_around_delay_analysis.csv")
-    df = df[df["state"] == "ended"]
-    df = df.dropna(
-        subset=[
-            "delay_at_checkout_in_minutes",
-            "time_delta_with_previous_rental_in_minutes",
-        ]
-    )
+    df = load_delay_data().copy()
     df["delay_at_checkout_in_minutes"] = df["delay_at_checkout_in_minutes"].astype(int)
     df["time_delta_with_previous_rental_in_minutes"] = df[
         "time_delta_with_previous_rental_in_minutes"
     ].astype(int)
+
 
     # Sidebar delay filters
     st.sidebar.header("Delay Filters")
@@ -176,8 +190,7 @@ with tab2:
     st.header("💰 Pricing Analysis")
     st.info("Distribution of vehicle characteristics and prices.")
 
-    df_price = pd.read_csv("data/get_around_pricing_project.csv")
-    df_price = df_price.drop(columns=["Unnamed: 0"], errors="ignore")
+    df_price = load_pricing_data()
 
     st.subheader("Mileage distribution")
     fig_km = px.histogram(
@@ -238,9 +251,7 @@ with tab3:
     st.header("💸 Price Prediction")
     st.info("Fill out the form to get a rental price prediction for a car.")
 
-    # Load unique values for dropdowns from pricing dataset
-    df_price = pd.read_csv("data/get_around_pricing_project.csv")
-    df_price = df_price.drop(columns=["Unnamed: 0"], errors="ignore")
+    df_price = load_pricing_data()
 
     models = sorted(df_price["model_key"].dropna().unique())
     fuels = sorted(df_price["fuel"].dropna().unique())
@@ -289,10 +300,8 @@ with tab3:
             "has_speed_regulator": has_speed_regulator,
             "winter_tires": winter_tires,
         }
-        # Adjust the API URL as needed (Docker = service name instead of localhost)
-        api_url = "http://api:8001/predict"
         try:
-            response = requests.post(api_url, json={"input": [input_data]})
+            response = requests.post(API_URL, json={"input": [input_data]})
             if response.status_code == 200:
                 prediction = response.json()["prediction"][0]
                 st.success(f"Predicted rental price: **{prediction:.2f} €**")
@@ -305,6 +314,6 @@ with tab3:
 
 # Footer
 st.markdown(
-    "<hr><div style='text-align:center; color: #bbb;'>Made with ❤️ by Christophe NORET - 2025</div>",
+    "<hr><div style='text-align:center; color: #bbb;'>Made with ❤️ by Christophe NORET - 2026</div>",
     unsafe_allow_html=True,
 )

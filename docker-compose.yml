@@ -12,9 +12,9 @@ services:
     command: python ml/model_training.py
 
   mlflow-ui:
-    image: ghcr.io/mlflow/mlflow:latest
+    image: ghcr.io/mlflow/mlflow:v2.22.0
     ports:
-      - "5000:5000"
+      - "5001:5000"
     volumes:
       - ./mlruns:/mlflow/mlruns
     command: mlflow ui --backend-store-uri file:/mlflow/mlruns --host 0.0.0.0
@@ -28,7 +28,8 @@ services:
     volumes:
       - ./ml:/app/ml
     depends_on:
-      - train
+      train:
+        condition: service_completed_successfully
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
 
@@ -41,3 +42,8 @@ services:
     volumes:
       - ./dashboard:/app/dashboard
       - ./data:/app/data
+    environment:
+      - API_URL=http://api:8001/predict
+    depends_on:
+      api:
+        condition: service_started

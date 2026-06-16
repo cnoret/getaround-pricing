@@ -32,7 +32,8 @@ cd getaround-ml-dashboard-api
 ```bash
 python -m venv venv
 source venv/bin/activate  # or .\venv\Scripts\activate on Windows
-pip install -r requirements.txt
+pip install -r api/requirements.txt
+pip install -r dashboard/requirements.txt
 ```
 
 ### 3. Start the FastAPI prediction API
@@ -47,11 +48,10 @@ streamlit run dashboard/app.py --server.port=8501
 ```
 Visit: [http://localhost:8501](http://localhost:8501)
 
-> **By default, the dashboard code is configured to connect to the API using the Docker service name:** `http://api:8001/predict`.
+> The dashboard reads the API URL from the `API_URL` environment variable.
 >
-> **If you run everything locally *****without***** Docker, you must manually update the API URL in **``** to:** `http://localhost:8001/predict`
->
-> *(See the code comment in **`app.py`** for details.)*
+> - **Docker**: set automatically to `http://api:8001/predict` via `docker-compose.yml`.
+> - **Local (no Docker)**: defaults to `http://localhost:8001/predict` — no change needed.
 
 ---
 
@@ -63,7 +63,7 @@ docker compose up --build
 ```
 - **Dashboard:** [http://localhost:8501](http://localhost:8501)
 - **Prediction API:** [http://localhost:8001](http://localhost:8001)
-- **MLflow UI:** [http://localhost:5000](http://localhost:5000)
+- **MLflow UI:** [http://localhost:5001](http://localhost:5001)
 
 ### 2. API internal communication
 Within Docker, the dashboard communicates with the API at:
@@ -85,7 +85,7 @@ http://api:8001/predict
 │   ├── app.py
 │   └── requirements.txt
 ├── data/                  # Datasets
-│   ├── get_around_delay_analysis.xlsx
+│   ├── get_around_delay_analysis.csv
 │   └── get_around_pricing_project.csv
 ├── ml/                    # Model training scripts
 │   ├── model_training.py
