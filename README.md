@@ -4,8 +4,6 @@
 [![Live API](https://img.shields.io/badge/Live%20API-Open-009688?style=flat&logo=fastapi&logoColor=white)](https://cnoret-getaround-API.hf.space/)
 [![CI](https://github.com/cnoret/getaround-ml-dashboard-api/actions/workflows/ci.yml/badge.svg)](https://github.com/cnoret/getaround-ml-dashboard-api/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white)
-![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?logo=streamlit&logoColor=white)
 ![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML-F7931E?logo=scikit-learn&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
@@ -19,27 +17,27 @@ End-to-end ML project on Getaround car rental data — a price prediction API, a
 
 ## Features
 
-### ⏱️ Delay Analysis
+### Delay Analysis
 
 - Interactive histogram of checkout delays with sentinel-value filtering (126 min encoding for >2h delays)
 - Adjustable buffer threshold to simulate minimum time between consecutive rentals
 - Business impact metrics: revenue at risk, blocked rentals, conflict resolution rate
 - Delay breakdown by check-in type (Connect vs. mobile) with box plots
 
-### 💰 Pricing Analysis
+### Pricing Analysis
 
 - Dataset KPIs: car count, average price, average mileage, average engine power
 - Distribution charts for mileage and daily rental price
 - Scatter plot: rental price vs. mileage colored by fuel type
 - Average price by car type and by fuel type
 
-### 💸 Price Prediction
+### Price Prediction
 
 - Form wired live to the FastAPI `/predict` endpoint
 - Instant price estimate with delta vs. platform average
 - Model metrics (MAE, RMSE, R²) in an expandable section
 
-### 🔌 Prediction API
+### Prediction API
 
 - `POST /predict`: accepts one or multiple cars, returns predicted daily prices in euros
 - `GET /health`: health check endpoint
@@ -142,7 +140,7 @@ pip install -r api/requirements.txt pytest httpx
 pytest api/tests/ -v
 ```
 
-11 tests covering `/health`, `/`, and `/predict` — including Pydantic validation errors (negative mileage, invalid fuel, missing fields). Model is mocked, no `.joblib` required. Also runs on every push via GitHub Actions.
+11 tests covering `/health`, `/`, and `/predict` , including Pydantic validation errors (negative mileage, invalid fuel, missing fields). Model is mocked, no `.joblib` required. Also runs on every push via GitHub Actions.
 
 ---
 
