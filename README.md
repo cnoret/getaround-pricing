@@ -1,93 +1,45 @@
-# Getaround Price Prediction with Dashboard & API
-![Getaround dashboard screenshot](https://placehold.co/900x180?text=Getaround+Dashboard+Demo)
+# Getaround — Price Prediction Dashboard & API
+
+A machine learning project built around Getaround car rental data, featuring a price prediction API and an interactive analytics dashboard.
 
 ---
 
-## 🚀 Deployed Project
+## Live Demo
 
-- **Streamlit Dashboard:** [Hugging Face Space – Dashboard](https://cnoret-getaround-dashboard.hf.space/)
-- **Prediction API (FastAPI):** [Hugging Face Space – API](https://cnoret-getaround-API.hf.space/)
-
-
----
-
-## 💡 Project Overview
-
-This repository provides:
-- An **interactive dashboard** for delay & pricing analytics (**Streamlit**)
-- A **machine learning API** for real-time car price prediction (**FastAPI**)
-- **All-in-one deployment** (locally, with Docker, or on Hugging Face Spaces)
+- **Streamlit Dashboard** — [cnoret-getaround-dashboard.hf.space](https://cnoret-getaround-dashboard.hf.space/)
+- **FastAPI Prediction API** — [cnoret-getaround-API.hf.space](https://cnoret-getaround-API.hf.space/)
 
 ---
 
-## 🛠️ How to Run Locally
+## Overview
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/cnoret/getaround-ml-dashboard-api.git
-cd getaround-ml-dashboard-api
-```
+- **Dashboard** (Streamlit): explore rental delay patterns, pricing distributions, and get instant price predictions through a form connected to the API.
+- **Prediction API** (FastAPI): REST endpoint that takes car features and returns a predicted daily rental price, powered by a scikit-learn Random Forest pipeline.
+- **Model training** (scikit-learn + MLflow): reproducible training script with experiment tracking.
 
-### 2. Install Python dependencies
-```bash
-python -m venv venv
-source venv/bin/activate  # or .\venv\Scripts\activate on Windows
-pip install -r api/requirements.txt
-pip install -r dashboard/requirements.txt
-```
+### Tech stack
 
-### 3. Start the FastAPI prediction API
-```bash
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8001
-```
-Visit: [http://localhost:8001/docs](http://localhost:8001/docs)
-
-### 4. Start the Streamlit dashboard
-```bash
-streamlit run dashboard/app.py --server.port=8501
-```
-Visit: [http://localhost:8501](http://localhost:8501)
-
-> The dashboard reads the API URL from the `API_URL` environment variable.
->
-> - **Docker**: set automatically to `http://api:8001/predict` via `docker-compose.yml`.
-> - **Local (no Docker)**: defaults to `http://localhost:8001/predict` — no change needed.
+- Python 3.10 — FastAPI, Streamlit, scikit-learn, MLflow, pandas, Plotly
+- Docker + Docker Compose
 
 ---
 
-## 🐳 How to Run with Docker
-
-### 1. Build and start all services
-```bash
-docker compose up --build
-```
-- **Dashboard:** [http://localhost:8501](http://localhost:8501)
-- **Prediction API:** [http://localhost:8001](http://localhost:8001)
-- **MLflow UI:** [http://localhost:5001](http://localhost:5001)
-
-### 2. API internal communication
-Within Docker, the dashboard communicates with the API at:
-```
-http://api:8001/predict
-```
-*Do not use localhost for inter-container communication!*
-
----
-
-## 📂 Project Structure
+## Project Structure
 
 ```text
 .
-├── api/                   # FastAPI ML API
+├── api/                   # FastAPI prediction API
 │   ├── main.py
 │   └── requirements.txt
 ├── dashboard/             # Streamlit dashboard
 │   ├── app.py
 │   └── requirements.txt
-├── data/                  # Datasets
+├── data/                  # Raw datasets
 │   ├── get_around_delay_analysis.csv
 │   └── get_around_pricing_project.csv
-├── ml/                    # Model training scripts
+├── ml/                    # Model training
+│   ├── model/
+│   │   └── model.joblib
 │   ├── model_training.py
 │   └── requirements.txt
 ├── Dockerfile.fastapi
@@ -99,12 +51,75 @@ http://api:8001/predict
 
 ---
 
-## 📎 Useful Links
+## Run with Docker (recommended)
 
-- [FastAPI Docs](https://fastapi.tiangolo.com/)
-- [Streamlit Docs](https://docs.streamlit.io/)
-- [Hugging Face Spaces](https://huggingface.co/spaces)
+```bash
+docker compose up --build
+```
+
+| Service          | URL                                               |
+|------------------|---------------------------------------------------|
+| Dashboard        | [localhost:8501](http://localhost:8501)           |
+| API + Swagger UI | [localhost:8001/docs](http://localhost:8001/docs) |
+| MLflow UI        | [localhost:5001](http://localhost:5001)           |
+
+Docker Compose starts the training first, waits for it to complete, then launches the API and dashboard. Inter-service communication is handled automatically via the `API_URL` environment variable.
 
 ---
 
-*Feel free to contact me for any questions or contributions!*
+## Run Locally
+
+### 1. Clone
+
+```bash
+git clone https://github.com/cnoret/getaround-ml-dashboard-api.git
+cd getaround-ml-dashboard-api
+```
+
+### 2. Install dependencies
+
+```bash
+python -m venv venv
+source venv/bin/activate  # Windows: .\venv\Scripts\activate
+pip install -r api/requirements.txt
+pip install -r dashboard/requirements.txt
+```
+
+### 3. Start the API
+
+```bash
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8001
+```
+
+Swagger UI: [localhost:8001/docs](http://localhost:8001/docs)
+
+### 4. Start the dashboard
+
+```bash
+streamlit run dashboard/app.py --server.port=8501
+```
+
+Dashboard: [localhost:8501](http://localhost:8501)
+
+> The dashboard connects to the API via the `API_URL` env var, which defaults to `http://localhost:8001/predict` when not set.
+
+---
+
+## Retrain the model
+
+```bash
+pip install -r ml/requirements.txt
+python ml/model_training.py
+```
+
+Metrics and artifacts are tracked in MLflow (`./mlruns`).
+
+---
+
+## Resources
+
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [Streamlit](https://docs.streamlit.io/)
+- [scikit-learn](https://scikit-learn.org/)
+- [MLflow](https://mlflow.org/)
+- [Hugging Face Spaces](https://huggingface.co/spaces)
