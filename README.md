@@ -111,6 +111,9 @@ streamlit run dashboard/app.py --server.port=8501
 │   │   └── model.joblib
 │   ├── model_training.py
 │   └── requirements.txt
+├── notebooks/             # Exploratory Data Analysis
+│   ├── eda_delay.ipynb
+│   └── eda_pricing.ipynb
 ├── .github/workflows/     # CI
 │   └── ci.yml
 ├── Dockerfile.fastapi
@@ -118,6 +121,15 @@ streamlit run dashboard/app.py --server.port=8501
 ├── Dockerfile.training
 └── docker-compose.yml
 ```
+
+---
+
+## Notebooks
+
+| Notebook                                         | Description                                                      |
+|--------------------------------------------------|------------------------------------------------------------------|
+| [eda_delay.ipynb](notebooks/eda_delay.ipynb)     | Delay distribution, sentinel value analysis, conflict simulation |
+| [eda_pricing.ipynb](notebooks/eda_pricing.ipynb) | Pricing EDA, feature correlations, model selection rationale     |
 
 ---
 
