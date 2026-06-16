@@ -2,7 +2,7 @@
 
 [![Live Dashboard](https://img.shields.io/badge/Live%20Dashboard-Open-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://cnoret-getaround-dashboard.hf.space/)
 [![Live API](https://img.shields.io/badge/Live%20API-Open-009688?style=flat&logo=fastapi&logoColor=white)](https://cnoret-getaround-API.hf.space/)
-[![CI](https://github.com/cnoret/getaround-ml-dashboard-api/actions/workflows/ci.yml/badge.svg)](https://github.com/cnoret/getaround-ml-dashboard-api/actions/workflows/ci.yml)
+[![CI](https://github.com/cnoret/getaround-pricing/actions/workflows/ci.yml/badge.svg)](https://github.com/cnoret/getaround-pricing/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)
 ![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML-F7931E?logo=scikit-learn&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -78,8 +78,8 @@ Docker Compose trains the model first (`condition: service_completed_successfull
 ### Run locally without Docker
 
 ```bash
-git clone https://github.com/cnoret/getaround-ml-dashboard-api.git
-cd getaround-ml-dashboard-api
+git clone https://github.com/cnoret/getaround-pricing.git
+cd getaround-pricing
 pip install -r api/requirements.txt -r dashboard/requirements.txt
 
 # Terminal 1 — API
