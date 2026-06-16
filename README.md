@@ -13,13 +13,20 @@ A machine learning project built around Getaround car rental data, featuring a p
 
 ## Overview
 
-- **Dashboard** (Streamlit): explore rental delay patterns, pricing distributions, and get instant price predictions through a form connected to the API.
-- **Prediction API** (FastAPI): REST endpoint that takes car features and returns a predicted daily rental price, powered by a scikit-learn Random Forest pipeline.
-- **Model training** (scikit-learn + MLflow): reproducible training script with experiment tracking.
+Getaround owners need to price their cars competitively and minimize conflicts between back-to-back rentals. This project addresses both problems:
+
+- **Delay Analysis**: visualize return delay patterns, simulate buffer time thresholds (e.g. 60 min minimum between rentals), and measure their impact on revenue and conflict resolution.
+- **Price Prediction**: given a car's features (mileage, engine power, model, fuel type, options…), predict an optimal daily rental price using a trained Random Forest model.
+
+The project is split into three components:
+
+- **Dashboard** (Streamlit): interactive analytics across two datasets — delays and pricing — plus a prediction form wired to the API.
+- **Prediction API** (FastAPI): `POST /predict` endpoint returning a price in euros from car features.
+- **Model training** (scikit-learn + MLflow): preprocessing pipeline (StandardScaler + OneHotEncoder) + Random Forest, with MAE/RMSE/R² logged to MLflow.
 
 ### Tech stack
 
-- Python 3.10 — FastAPI, Streamlit, scikit-learn, MLflow, pandas, Plotly
+- Python 3.10 - FastAPI, Streamlit, scikit-learn, MLflow, pandas, Plotly
 - Docker + Docker Compose
 
 ---
