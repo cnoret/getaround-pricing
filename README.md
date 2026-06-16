@@ -1,47 +1,95 @@
 # Getaround — Price Prediction Dashboard & API
 
+[![Live Dashboard](https://img.shields.io/badge/Live%20Dashboard-Open-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://cnoret-getaround-dashboard.hf.space/)
+[![Live API](https://img.shields.io/badge/Live%20API-Open-009688?style=flat&logo=fastapi&logoColor=white)](https://cnoret-getaround-API.hf.space/)
 [![CI](https://github.com/cnoret/getaround-ml-dashboard-api/actions/workflows/ci.yml/badge.svg)](https://github.com/cnoret/getaround-ml-dashboard-api/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?logo=streamlit&logoColor=white)
+![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML-F7931E?logo=scikit-learn&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-A machine learning project built around Getaround car rental data, featuring a price prediction API and an interactive analytics dashboard.
+End-to-end ML project on Getaround car rental data — a price prediction API, an interactive analytics dashboard, and a full training pipeline with MLflow experiment tracking.
+
+**Datasets:** pricing (~4,800 car listings · 13 features) · delay analysis (rental records with checkout times and consecutive booking gaps)
 
 ![Getaround Dashboard](dashboard_preview.png)
 
 ---
 
-## Live Demo
+## Features
 
-- **Streamlit Dashboard** — [cnoret-getaround-dashboard.hf.space](https://cnoret-getaround-dashboard.hf.space/)
-- **FastAPI Prediction API** — [cnoret-getaround-API.hf.space](https://cnoret-getaround-API.hf.space/)
+### ⏱️ Delay Analysis
+
+- Interactive histogram of checkout delays with sentinel-value filtering (126 min encoding for >2h delays)
+- Adjustable buffer threshold to simulate minimum time between consecutive rentals
+- Business impact metrics: revenue at risk, blocked rentals, conflict resolution rate
+- Delay breakdown by check-in type (Connect vs. mobile) with box plots
+
+### 💰 Pricing Analysis
+
+- Dataset KPIs: car count, average price, average mileage, average engine power
+- Distribution charts for mileage and daily rental price
+- Scatter plot: rental price vs. mileage colored by fuel type
+- Average price by car type and by fuel type
+
+### 💸 Price Prediction
+
+- Form wired live to the FastAPI `/predict` endpoint
+- Instant price estimate with delta vs. platform average
+- Model metrics (MAE, RMSE, R²) in an expandable section
+
+### 🔌 Prediction API
+
+- `POST /predict`: accepts one or multiple cars, returns predicted daily prices in euros
+- `GET /health`: health check endpoint
+- Pydantic v2 validation: field constraints + `Literal` types for all categoricals
+- Interactive Swagger UI at `/docs`
 
 ---
 
-## Overview
+## Tech Stack
 
-Getaround owners need to price their cars competitively and minimize conflicts between back-to-back rentals. This project addresses both problems:
+| Layer              | Libraries                                                                 |
+|--------------------|---------------------------------------------------------------------------|
+| Data               | Pandas                                                                    |
+| ML                 | Scikit-Learn (RandomForest, Pipeline, ColumnTransformer) · Joblib         |
+| Experiment tracking| MLflow                                                                    |
+| API                | FastAPI · Pydantic v2 · Uvicorn                                           |
+| Dashboard          | Streamlit · Plotly                                                        |
+| Infra              | Docker · Docker Compose                                                   |
+| CI                 | GitHub Actions                                                            |
+| Deployment         | Hugging Face Spaces                                                       |
 
-- **Delay Analysis**: visualize return delay patterns, simulate buffer time thresholds (e.g. 60 min minimum between rentals), and measure their impact on revenue and conflict resolution.
-- **Price Prediction**: given a car's features (mileage, engine power, model, fuel type, options…), predict an optimal daily rental price using a trained Random Forest model.
+---
 
-The project is split into three components:
+## Quick Start
 
-- **Dashboard** (Streamlit): interactive analytics across two datasets — delays and pricing — plus a prediction form wired to the API.
-- **Prediction API** (FastAPI): `POST /predict` endpoint returning a price in euros from car features.
-- **Model training** (scikit-learn + MLflow): preprocessing pipeline (StandardScaler + OneHotEncoder) + Random Forest, with MAE/RMSE/R² logged to MLflow.
+```bash
+docker compose up --build
+```
 
-### Model performance
+| Service          | URL                                               |
+|------------------|---------------------------------------------------|
+| Dashboard        | [localhost:8501](http://localhost:8501)           |
+| API + Swagger UI | [localhost:8001/docs](http://localhost:8001/docs) |
+| MLflow UI        | [localhost:5001](http://localhost:5001)           |
 
-Evaluated on a 20% holdout set (random_state=42):
+Docker Compose trains the model first (`condition: service_completed_successfully`), then starts the API and dashboard. Inter-service communication uses the `API_URL` environment variable.
 
-| Metric | Value   |
-|--------|---------|
-| MAE    | 10.68 € |
-| RMSE   | 16.73 € |
-| R²     | 0.734   |
+### Run locally without Docker
 
-### Tech stack
+```bash
+git clone https://github.com/cnoret/getaround-ml-dashboard-api.git
+cd getaround-ml-dashboard-api
+pip install -r api/requirements.txt -r dashboard/requirements.txt
 
-- Python 3.10 - FastAPI, Streamlit, scikit-learn, MLflow, pandas, Plotly
-- Docker + Docker Compose
+# Terminal 1 — API
+uvicorn api.main:app --reload --port 8001
+
+# Terminal 2 — Dashboard
+streamlit run dashboard/app.py --server.port=8501
+```
 
 ---
 
@@ -65,83 +113,40 @@ Evaluated on a 20% holdout set (random_state=42):
 │   │   └── model.joblib
 │   ├── model_training.py
 │   └── requirements.txt
+├── .github/workflows/     # CI
+│   └── ci.yml
 ├── Dockerfile.fastapi
 ├── Dockerfile.dashboard
 ├── Dockerfile.training
-├── docker-compose.yml
-└── README.md
+└── docker-compose.yml
 ```
 
 ---
 
-## Run with Docker (recommended)
+## Results
 
-```bash
-docker compose up --build
-```
+| Metric | Value   |
+|--------|---------|
+| MAE    | 10.68 € |
+| RMSE   | 16.73 € |
+| R²     | 0.734   |
 
-| Service          | URL                                               |
-|------------------|---------------------------------------------------|
-| Dashboard        | [localhost:8501](http://localhost:8501)           |
-| API + Swagger UI | [localhost:8001/docs](http://localhost:8001/docs) |
-| MLflow UI        | [localhost:5001](http://localhost:5001)           |
-
-Docker Compose starts the training first, waits for it to complete, then launches the API and dashboard. Inter-service communication is handled automatically via the `API_URL` environment variable.
+Random Forest with StandardScaler on numeric features (mileage, engine power) and OneHotEncoder on categoricals (brand, fuel, color, car type), evaluated on a 20% holdout set (random_state=42). Key predictors: engine power, car type, and model brand.
 
 ---
 
-## Run Locally
-
-### 1. Clone
-
-```bash
-git clone https://github.com/cnoret/getaround-ml-dashboard-api.git
-cd getaround-ml-dashboard-api
-```
-
-### 2. Install dependencies
-
-```bash
-python -m venv venv
-source venv/bin/activate  # Windows: .\venv\Scripts\activate
-pip install -r api/requirements.txt
-pip install -r dashboard/requirements.txt
-```
-
-### 3. Start the API
-
-```bash
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8001
-```
-
-Swagger UI: [localhost:8001/docs](http://localhost:8001/docs)
-
-### 4. Start the dashboard
-
-```bash
-streamlit run dashboard/app.py --server.port=8501
-```
-
-Dashboard: [localhost:8501](http://localhost:8501)
-
-> The dashboard connects to the API via the `API_URL` env var, which defaults to `http://localhost:8001/predict` when not set.
-
----
-
-## Run tests
+## Tests
 
 ```bash
 pip install -r api/requirements.txt pytest httpx
 pytest api/tests/ -v
 ```
 
-Tests cover the `/health`, `/`, and `/predict` endpoints, including Pydantic validation (negative mileage, invalid fuel type, missing fields, etc.). The model is mocked so no `.joblib` file is required.
-
-Tests also run automatically on every push via GitHub Actions.
+11 tests covering `/health`, `/`, and `/predict` — including Pydantic validation errors (negative mileage, invalid fuel, missing fields). Model is mocked, no `.joblib` required. Also runs on every push via GitHub Actions.
 
 ---
 
-## Retrain the model
+## Retrain
 
 ```bash
 pip install -r ml/requirements.txt
@@ -152,10 +157,6 @@ Metrics and artifacts are tracked in MLflow (`./mlruns`).
 
 ---
 
-## Resources
+## License
 
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [Streamlit](https://docs.streamlit.io/)
-- [scikit-learn](https://scikit-learn.org/)
-- [MLflow](https://mlflow.org/)
-- [Hugging Face Spaces](https://huggingface.co/spaces)
+MIT — [LICENSE](LICENSE)
