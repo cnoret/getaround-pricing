@@ -94,8 +94,10 @@ with tab1:
             """
         )
 
+    sentinel_count = (late_returns["delay_at_checkout_in_minutes"] == 126).sum()
+    hist_df = late_returns[late_returns["delay_at_checkout_in_minutes"] != 126]
     fig_hist = px.histogram(
-        late_returns,
+        hist_df,
         x="delay_at_checkout_in_minutes",
         nbins=40,
         title="Distribution of checkout delays",
@@ -104,6 +106,10 @@ with tab1:
     )
     fig_hist.update_layout(bargap=0.05)
     st.plotly_chart(fig_hist, use_container_width=True)
+    st.caption(
+        f"⚠️ {sentinel_count:,} rentals encoded as exactly 126 min are excluded, "
+        "this appears to be a sentinel value for delays above 2 hours in the source data."
+    )
 
     st.subheader("Business Impact")
     st.caption(f"Simulating a {threshold}-minute minimum gap between consecutive rentals.")
@@ -117,19 +123,10 @@ with tab1:
     ]
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric(
-        "Revenue at risk",
-        f"{revenue_share:.1f}%",
-        delta=f"{impacted_revenue} rentals",
-        delta_color="inverse",
-    )
-    col2.metric("Rentals blocked", len(conflicts), delta_color="inverse")
-    col3.metric("Late returns affecting next", len(critical_late_returns), delta_color="inverse")
-    col4.metric(
-        "Delays resolved",
-        f"{resolved_share:.1f}%",
-        delta=f"{len(resolved_cases)} cases",
-    )
+    col1.metric("Revenue at risk", f"{revenue_share:.1f}%", delta=f"{impacted_revenue} rentals", delta_color="off")
+    col2.metric("Rentals blocked", len(conflicts), delta_color="off")
+    col3.metric("Late returns affecting next", len(critical_late_returns), delta_color="off")
+    col4.metric("Delays resolved", f"{resolved_share:.1f}%", delta=f"{len(resolved_cases)} cases", delta_color="off")
 
     col_a, col_b = st.columns(2)
     with col_a:
