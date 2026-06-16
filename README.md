@@ -2,6 +2,8 @@
 
 A machine learning project built around Getaround car rental data, featuring a price prediction API and an interactive analytics dashboard.
 
+![Getaround Dashboard](dashboard_preview.png)
+
 ---
 
 ## Live Demo
@@ -23,6 +25,16 @@ The project is split into three components:
 - **Dashboard** (Streamlit): interactive analytics across two datasets — delays and pricing — plus a prediction form wired to the API.
 - **Prediction API** (FastAPI): `POST /predict` endpoint returning a price in euros from car features.
 - **Model training** (scikit-learn + MLflow): preprocessing pipeline (StandardScaler + OneHotEncoder) + Random Forest, with MAE/RMSE/R² logged to MLflow.
+
+### Model performance
+
+Evaluated on a 20% holdout set (random_state=42):
+
+| Metric | Value   |
+|--------|---------|
+| MAE    | 10.68 € |
+| RMSE   | 16.73 € |
+| R²     | 0.734   |
 
 ### Tech stack
 

@@ -356,6 +356,10 @@ with tab3:
             - **OneHotEncoder** on categorical features (brand, fuel type, color, car type)
             """
         )
+        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1.metric("MAE", "10.68 €", help="Mean Absolute Error on 20% holdout set")
+        col_m2.metric("RMSE", "16.73 €", help="Root Mean Squared Error on 20% holdout set")
+        col_m3.metric("R²", "0.734", help="Coefficient of determination on 20% holdout set")
 
 # Footer
 st.markdown(

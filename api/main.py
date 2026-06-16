@@ -145,12 +145,9 @@ async def root():
 @app.post("/predict")
 def predict(data: InputData):
     """Endpoint to predict rental prices based on car features."""
-    # Convert input list of CarFeatures to a pandas DataFrame
     input_dicts = [item.model_dump() for item in data.input]
     df = pd.DataFrame(input_dicts)
-    # Predict using the loaded model pipeline
     predictions = model.predict(df)
-    # Return predictions as a list
     return {"prediction": predictions.tolist()}
 
 
