@@ -36,7 +36,6 @@ app = FastAPI(
     version="1.0",
 )
 
-# Load the trained model once
 model = joblib.load("model/model.joblib")
 
 
@@ -147,6 +146,8 @@ async def root():
 def predict(data: InputData):
     """Endpoint to predict rental prices based on car features."""
     input_dicts = [item.model_dump() for item in data.input]
+    if not input_dicts:
+        return {"prediction": []}
     df = pd.DataFrame(input_dicts)
     predictions = model.predict(df)
     return {"prediction": predictions.tolist()}

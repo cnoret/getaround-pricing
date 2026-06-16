@@ -7,7 +7,7 @@
 ![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML-F7931E?logo=scikit-learn&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-End-to-end ML project on Getaround car rental data — a price prediction API, an interactive analytics dashboard, and a full training pipeline with MLflow experiment tracking.
+End-to-end ML project on Getaround car rental data - a price prediction API, an interactive analytics dashboard, and a full training pipeline with MLflow experiment tracking.
 
 **Datasets:** pricing (~4,800 car listings · 13 features) · delay analysis (rental records with checkout times and consecutive booking gaps)
 
@@ -140,7 +140,7 @@ pip install -r api/requirements.txt pytest httpx
 pytest api/tests/ -v
 ```
 
-11 tests covering `/health`, `/`, and `/predict` , including Pydantic validation errors (negative mileage, invalid fuel, missing fields). Model is mocked, no `.joblib` required. Also runs on every push via GitHub Actions.
+11 tests covering `/health`, `/`, and `/predict`, including Pydantic validation errors (negative mileage, invalid fuel, missing fields). Model is mocked, no `.joblib` required. Also runs on every push via GitHub Actions.
 
 ---
 
