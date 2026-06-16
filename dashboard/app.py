@@ -67,7 +67,6 @@ with tab1:
         "time_delta_with_previous_rental_in_minutes"
     ].astype(int)
 
-
     # Sidebar delay filters
     st.sidebar.header("Delay Filters")
     threshold = st.sidebar.slider(

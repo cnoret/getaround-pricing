@@ -3,7 +3,6 @@ Getaround Price Prediction API
 This API provides a model for predicting optimal rental prices based on car features.
 """
 
-from typing import List
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -32,7 +31,7 @@ class CarFeatures(BaseModel):
 class InputData(BaseModel):
     """Model for the input data to the prediction endpoint."""
 
-    input: List[CarFeatures]
+    input: list[CarFeatures]
 
 
 app = FastAPI(

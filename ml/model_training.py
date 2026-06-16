@@ -58,7 +58,7 @@ if __name__ == "__main__":
     )
 
     # Start MLflow experiment
-    mlflow.set_tracking_uri("file:///app/mlruns")
+    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "file:///app/mlruns"))
     mlflow.set_experiment("getaround_pricing")
 
     with mlflow.start_run():
