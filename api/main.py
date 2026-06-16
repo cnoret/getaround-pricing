@@ -1,11 +1,7 @@
-"""
-Getaround Price Prediction API
-This API provides a model for predicting optimal rental prices based on car features.
-"""
-
+from typing import Literal
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import joblib
 import pandas as pd
 
@@ -13,12 +9,12 @@ import pandas as pd
 class CarFeatures(BaseModel):
     """Model representing the features of a car for price prediction."""
 
-    mileage: float
-    engine_power: float
+    mileage: float = Field(ge=0, description="Mileage in km")
+    engine_power: float = Field(gt=0, description="Engine power in hp")
     model_key: str
-    fuel: str
-    paint_color: str
-    car_type: str
+    fuel: Literal["diesel", "petrol", "hybrid_petrol", "electro"]
+    paint_color: Literal["beige", "black", "blue", "brown", "green", "grey", "orange", "red", "silver", "white"]
+    car_type: Literal["convertible", "coupe", "estate", "hatchback", "sedan", "subcompact", "suv", "van"]
     private_parking_available: bool
     has_gps: bool
     has_air_conditioning: bool
@@ -42,6 +38,11 @@ app = FastAPI(
 
 # Load the trained model once
 model = joblib.load("model/model.joblib")
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -149,5 +150,3 @@ def predict(data: InputData):
     df = pd.DataFrame(input_dicts)
     predictions = model.predict(df)
     return {"prediction": predictions.tolist()}
-
-

@@ -1,5 +1,7 @@
 # Getaround — Price Prediction Dashboard & API
 
+[![CI](https://github.com/cnoret/getaround-ml-dashboard-api/actions/workflows/ci.yml/badge.svg)](https://github.com/cnoret/getaround-ml-dashboard-api/actions/workflows/ci.yml)
+
 A machine learning project built around Getaround car rental data, featuring a price prediction API and an interactive analytics dashboard.
 
 ![Getaround Dashboard](dashboard_preview.png)
@@ -49,7 +51,9 @@ Evaluated on a 20% holdout set (random_state=42):
 .
 ├── api/                   # FastAPI prediction API
 │   ├── main.py
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── tests/
+│       └── test_api.py
 ├── dashboard/             # Streamlit dashboard
 │   ├── app.py
 │   └── requirements.txt
@@ -121,6 +125,19 @@ streamlit run dashboard/app.py --server.port=8501
 Dashboard: [localhost:8501](http://localhost:8501)
 
 > The dashboard connects to the API via the `API_URL` env var, which defaults to `http://localhost:8001/predict` when not set.
+
+---
+
+## Run tests
+
+```bash
+pip install -r api/requirements.txt pytest httpx
+pytest api/tests/ -v
+```
+
+Tests cover the `/health`, `/`, and `/predict` endpoints, including Pydantic validation (negative mileage, invalid fuel type, missing fields, etc.). The model is mocked so no `.joblib` file is required.
+
+Tests also run automatically on every push via GitHub Actions.
 
 ---
 

@@ -18,8 +18,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ml/ ./ml/
 COPY data/ ./data/
 
-# Expose MLflow UI port (optional)
-EXPOSE 5000
-
 # Run the training script
 CMD ["python", "ml/model_training.py"]
