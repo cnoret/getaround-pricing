@@ -21,7 +21,8 @@ End-to-end ML project on Getaround car rental data - a price prediction API, an 
 
 - Interactive histogram of checkout delays with sentinel-value filtering (126 min encoding for >2h delays)
 - Adjustable buffer threshold to simulate minimum time between consecutive rentals
-- Business impact metrics: revenue at risk, blocked rentals, conflict resolution rate
+- Business impact metrics: share of handover conflicts avoided vs. share of rentals blocked (revenue at risk), plus late returns absorbed by the buffer
+- **Key finding:** a 60-minute minimum gap prevents **77% of handover conflicts** while blocking only **2% of rentals**
 - Delay breakdown by check-in type (Connect vs. mobile) with box plots
 
 ### Pricing Analysis

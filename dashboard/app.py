@@ -40,6 +40,47 @@ def load_delay_data():
 
 
 @st.cache_data
+def load_raw_delay_data():
+    return pd.read_csv("data/get_around_delay_analysis.csv")
+
+
+def simulate_buffer(raw, threshold, checkin_type=None):
+    """Simulate a minimum gap of `threshold` minutes between consecutive rentals.
+
+    A conflict happens when the previous rental of the same car is returned
+    later than the planned gap before the next rental starts. Enforcing the
+    buffer blocks every booking whose planned gap is shorter than `threshold`:
+    this removes those conflicts, but also those rentals (revenue at risk).
+    """
+    previous_delay = raw.set_index("rental_id")["delay_at_checkout_in_minutes"]
+
+    ended = raw[raw["state"] == "ended"]
+    if checkin_type is not None:
+        ended = ended[ended["checkin_type"] == checkin_type]
+
+    chained = ended.dropna(
+        subset=["previous_ended_rental_id", "time_delta_with_previous_rental_in_minutes"]
+    ).copy()
+    chained["previous_delay"] = chained["previous_ended_rental_id"].map(previous_delay)
+    chained = chained.dropna(subset=["previous_delay"])
+
+    gap = chained["time_delta_with_previous_rental_in_minutes"]
+    conflicts = chained[chained["previous_delay"] > gap]
+    avoided = conflicts[conflicts["time_delta_with_previous_rental_in_minutes"] < threshold]
+    blocked = chained[gap < threshold]
+
+    return {
+        "ended": len(ended),
+        "conflicts": len(conflicts),
+        "avoided": len(avoided),
+        "remaining": len(conflicts) - len(avoided),
+        "avoided_share": 100 * len(avoided) / len(conflicts) if len(conflicts) else 0,
+        "blocked": len(blocked),
+        "blocked_share": 100 * len(blocked) / len(ended) if len(ended) else 0,
+    }
+
+
+@st.cache_data
 def load_pricing_data():
     df = pd.read_csv("data/get_around_pricing_project.csv")
     return df.drop(columns=["Unnamed: 0"], errors="ignore")
@@ -69,11 +110,11 @@ with tab1:
         df = df[df["checkin_type"] == "connect"]
 
     late_returns = df[df["delay_at_checkout_in_minutes"] > 0]
-    resolved_cases = late_returns[
-        late_returns["delay_at_checkout_in_minutes"] > threshold
+    absorbed_cases = late_returns[
+        late_returns["delay_at_checkout_in_minutes"] <= threshold
     ]
-    resolved_share = (
-        len(resolved_cases) / len(late_returns) * 100 if len(late_returns) > 0 else 0
+    absorbed_share = (
+        len(absorbed_cases) / len(late_returns) * 100 if len(late_returns) > 0 else 0
     )
 
     col1, col2, col3 = st.columns(3)
@@ -82,15 +123,15 @@ with tab1:
         len(late_returns),
         help="Rentals where the car was returned after the scheduled checkout time",
     )
-    col2.metric(f"Resolved (>{threshold} min buffer)", len(resolved_cases))
-    col3.metric("% of delays covered", f"{resolved_share:.1f}%")
+    col2.metric(f"Absorbed (≤ {threshold} min)", len(absorbed_cases))
+    col3.metric("% of delays absorbed", f"{absorbed_share:.1f}%")
 
     with st.expander("ℹ️ What do these metrics mean?"):
         st.write(
-            """
+            f"""
             - **Late returns**: rentals with a return delay > 0 min.
-            - **Resolved**: cases where the selected buffer time absorbs the delay.
-            - **% covered**: share of late returns covered by the buffer.
+            - **Absorbed**: late returns of at most {threshold} min, which the buffer would cover.
+            - **% absorbed**: share of late returns covered by the buffer.
             """
         )
 
@@ -114,19 +155,45 @@ with tab1:
     st.subheader("Business Impact")
     st.caption(f"Simulating a {threshold}-minute minimum gap between consecutive rentals.")
 
-    conflicts = df[df["time_delta_with_previous_rental_in_minutes"] < threshold]
-    total_rentals = len(df)
-    impacted_revenue = len(conflicts)
-    revenue_share = 100 * impacted_revenue / total_rentals if total_rentals > 0 else 0
-    critical_late_returns = late_returns[
-        late_returns["time_delta_with_previous_rental_in_minutes"] < threshold
-    ]
+    impact = simulate_buffer(
+        load_raw_delay_data(),
+        threshold,
+        "connect" if scope == "Connect only" else None,
+    )
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Revenue at risk", f"{revenue_share:.1f}%", delta=f"{impacted_revenue} rentals", delta_color="off")
-    col2.metric("Rentals blocked", len(conflicts), delta_color="off")
-    col3.metric("Late returns affecting next", len(critical_late_returns), delta_color="off")
-    col4.metric("Delays resolved", f"{resolved_share:.1f}%", delta=f"{len(resolved_cases)} cases", delta_color="off")
+    col1.metric(
+        "Conflicts avoided",
+        f"{impact['avoided_share']:.0f}%",
+        delta=f"{impact['avoided']} of {impact['conflicts']} conflicts",
+        delta_color="off",
+        help="Conflicts where the previous rental ran over the planned gap, and which the buffer would prevent",
+    )
+    col2.metric(
+        "Rentals blocked (revenue at risk)",
+        f"{impact['blocked_share']:.1f}%",
+        delta=f"{impact['blocked']} of {impact['ended']} rentals",
+        delta_color="off",
+        help="Share of all ended rentals that the buffer would prevent from being booked",
+    )
+    col3.metric("Conflicts remaining", impact["remaining"], delta_color="off")
+    col4.metric(
+        "Delays absorbed",
+        f"{absorbed_share:.1f}%",
+        delta=f"{len(absorbed_cases)} cases",
+        delta_color="off",
+    )
+
+    with st.expander("ℹ️ How is the impact computed?"):
+        st.write(
+            """
+            - **Conflict**: the previous rental of the same car was returned later than the
+              planned gap before the next rental.
+            - **Buffer rule**: bookings with a planned gap shorter than the buffer are not allowed.
+              This prevents the conflicts on those bookings, but also blocks the bookings themselves.
+            - **Rentals blocked** is computed on all ended rentals, as a proxy for revenue at risk.
+            """
+        )
 
     col_a, col_b = st.columns(2)
     with col_a:
