@@ -1,7 +1,7 @@
 # Getaround: Rental Delay Buffer and Price Prediction
 
-[![Live App](https://img.shields.io/badge/Live%20App-Open-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://cnoret-getaround-dashboard.hf.space/)
-[![Live API](https://img.shields.io/badge/Live%20API-Open-009688?style=flat&logo=fastapi&logoColor=white)](https://cnoret-getaround-api.hf.space/docs)
+[![Live App](https://img.shields.io/badge/Live%20App-Open-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://getaround-pricing.streamlit.app/)
+[![API](https://img.shields.io/badge/API-Hugging%20Face%20Space-009688?style=flat&logo=fastapi&logoColor=white)](https://huggingface.co/spaces/cnoret/getaround-api)
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/cnoret/getaround-pricing/blob/main/notebooks/eda_delay.ipynb)
 [![CI](https://github.com/cnoret/getaround-pricing/actions/workflows/tests.yml/badge.svg)](https://github.com/cnoret/getaround-pricing/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
@@ -13,7 +13,7 @@
 
 **Data:** 21,310 rentals · 8,143 cars · 2 check-in flows (mobile, Connect) · 58% of ended rentals returned late · 4,843 car listings · 28 brands · median price €119/day
 
-**Live app:** [cnoret-getaround-dashboard.hf.space](https://cnoret-getaround-dashboard.hf.space/) · API docs: [cnoret-getaround-api.hf.space/docs](https://cnoret-getaround-api.hf.space/docs)
+**Live app:** [getaround-pricing.streamlit.app](https://getaround-pricing.streamlit.app/) · API: [Hugging Face Space](https://huggingface.co/spaces/cnoret/getaround-api)
 
 ![Getaround Dashboard](dashboard_preview.png)
 
@@ -62,7 +62,7 @@ Engine power, car type and brand drive the price. StandardScaler on numeric feat
 
 | Part | Content |
 |------|---------|
-| **Dashboard** (Streamlit · Plotly) | *Delay Analysis*: late-return distribution, buffer simulation with a threshold slider and a Connect-only filter, conflicts avoided vs. rentals blocked. *Pricing Analysis*: KPIs and price distributions by mileage, fuel and car type. *Price Prediction*: form wired to the API, estimate vs. platform average. |
+| **Dashboard** (Streamlit · Plotly) | *Delay Analysis*: late-return distribution, buffer simulation with a threshold slider and a Connect-only filter, conflicts avoided vs. rentals blocked. *Pricing Analysis*: KPIs and price distributions by mileage, fuel and car type. *Price Prediction*: form wired to the API, estimate vs. platform average. If the API does not answer, the dashboard falls back to the same saved model, so the form always works. |
 | **API** (FastAPI · Pydantic v2) | `POST /predict` for one or several cars, `GET /health`, Swagger UI at `/docs`. Every categorical field is a `Literal`, numeric fields have bounds. |
 | **Training** (scikit-learn · MLflow) | `ml/model_training.py` trains the pipeline, logs metrics and the model to MLflow, and saves `ml/model/model.joblib`. |
 | **Notebooks** | [eda_delay.ipynb](notebooks/eda_delay.ipynb): delay distribution, missing values, outliers. [eda_pricing.ipynb](notebooks/eda_pricing.ipynb): pricing distributions and correlations. |
@@ -77,7 +77,7 @@ Engine power, car type and brand drive the price. StandardScaler on numeric feat
 | API | FastAPI · Pydantic v2 · Uvicorn |
 | Dashboard | Streamlit · Plotly |
 | Quality | pytest · Streamlit AppTest · ruff · GitHub Actions |
-| Infra | Docker · Docker Compose · Hugging Face Spaces |
+| Infra | Docker · Docker Compose · Streamlit Community Cloud · Hugging Face Spaces |
 
 ---
 
@@ -93,7 +93,7 @@ docker compose up --build
 | API + Swagger UI | [localhost:8001/docs](http://localhost:8001/docs) |
 | MLflow UI | [localhost:5001](http://localhost:5001) |
 
-Docker Compose trains the model first (`condition: service_completed_successfully`), then starts the API and the dashboard, which reaches the API through the `API_URL` environment variable.
+Docker Compose trains the model first (`condition: service_completed_successfully`), then starts the API and the dashboard, which reaches the API through the `API_URL` environment variable. Without `API_URL`, the dashboard predicts with `ml/model/model.joblib` directly.
 
 ### Run locally without Docker
 
@@ -109,6 +109,11 @@ uvicorn api.main:app --reload --port 8001
 streamlit run dashboard/app.py --server.port=8501
 ```
 
+### Deployment
+
+- **Dashboard:** Streamlit Community Cloud, from this repo (`dashboard/app.py`, Python 3.12), redeployed on every push to `main`. The `API_URL` secret points it to the API Space.
+- **API:** Hugging Face Space (Docker), [cnoret/getaround-api](https://huggingface.co/spaces/cnoret/getaround-api).
+
 ### Tests
 
 ```bash
@@ -117,7 +122,7 @@ ruff check .
 python -m pytest
 ```
 
-44 tests in about 20 seconds: API routes and validation (with a mocked model), a sanity check of the saved model, the buffer simulation on synthetic and real data (including the figures quoted above), and the dashboard run with Streamlit AppTest for every filter and for the prediction form. The **Tests** workflow runs `pip check`, ruff and pytest on Python 3.12 on every push and pull request.
+45 tests in about 30 seconds: API routes and validation (with a mocked model), a sanity check of the saved model, the buffer simulation on synthetic and real data (including the figures quoted above), and the dashboard run with Streamlit AppTest for every filter and for the prediction form (through the API, with the local model, and with the API down). The **Tests** workflow runs `pip check`, ruff and pytest on Python 3.12 on every push and pull request.
 
 ### Retrain
 

@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 from streamlit.testing.v1 import AppTest
 
 from tests.conftest import ROOT, TIMEOUT, no_exception
@@ -42,7 +43,19 @@ def test_delay_filters(scope, threshold):
     assert not at.error
 
 
-def test_prediction_shows_price():
+def test_prediction_with_local_model(monkeypatch):
+    """Without API_URL (Streamlit Community Cloud), the dashboard predicts with the saved model."""
+    monkeypatch.delenv("API_URL", raising=False)
+    with patch("requests.post") as post:
+        at = run_app()
+        at.button[0].click().run()
+    no_exception(at)
+    post.assert_not_called()
+    assert any("/ day" in m.body for m in at.markdown)
+
+
+def test_prediction_through_api(monkeypatch):
+    monkeypatch.setenv("API_URL", "http://api:8001/predict")
     response = MagicMock(status_code=200)
     response.json.return_value = {"prediction": [135.4]}
     with patch("requests.post", return_value=response) as post:
@@ -50,14 +63,20 @@ def test_prediction_shows_price():
         at.button[0].click().run()
     no_exception(at)
     post.assert_called_once()
+    assert post.call_args.args[0] == "http://api:8001/predict"
     payload = post.call_args.kwargs["json"]["input"][0]
     assert payload["mileage"] == 140_000.0
     assert any("135 €" in m.body for m in at.markdown)
 
 
-def test_prediction_api_down():
-    with patch("requests.post", side_effect=ConnectionError("refused")):
+def test_prediction_falls_back_when_api_down(monkeypatch):
+    """A paused or unreachable API does not break the form: the saved model answers instead."""
+    monkeypatch.setenv("API_URL", "http://api:8001/predict")
+    with patch("requests.post", side_effect=requests.ConnectionError("refused")) as post:
         at = run_app()
         at.button[0].click().run()
     no_exception(at)
-    assert any("Could not reach the prediction API" in e.value for e in at.error)
+    post.assert_called_once()
+    assert not at.error
+    assert any("did not answer" in c.value for c in at.caption)
+    assert any("/ day" in m.body for m in at.markdown)
