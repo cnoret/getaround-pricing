@@ -1,0 +1,12 @@
+# Style and common-error checks, run by the Tests workflow.
+# Usage: ruff check .
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "W", "B", "I"]
+# Long strings shown in the dashboard often exceed 88 characters
+ignore = ["E501"]
+
+[lint.isort]
+# Modules of api/ and dashboard/, imported by bare name (see pytest.ini)
+known-first-party = ["delay", "main", "tests"]

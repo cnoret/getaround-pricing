@@ -5,12 +5,20 @@ It uses Streamlit for the frontend and Plotly for visualizations.
 """
 
 import os
-import streamlit as st
+
 import pandas as pd
 import plotly.express as px
 import requests
+import streamlit as st
 
-from delay import DELAY, GAP, filter_scope, late_return_stats, load_rentals, simulate_buffer
+from delay import (
+    DELAY,
+    GAP,
+    filter_scope,
+    late_return_stats,
+    load_rentals,
+    simulate_buffer,
+)
 
 st.set_page_config(page_title="Getaround Dashboard", layout="wide", page_icon="🚗")
 
