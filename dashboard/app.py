@@ -10,6 +10,7 @@ from pathlib import Path
 import joblib
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import requests
 import streamlit as st
 
@@ -20,6 +21,7 @@ from delay import (
     late_return_stats,
     load_rentals,
     simulate_buffer,
+    tradeoff_curve,
 )
 
 st.set_page_config(page_title="Getaround Dashboard", layout="wide", page_icon="🚗")
@@ -64,6 +66,12 @@ def predict_price(car):
 @st.cache_data
 def load_delay_data():
     return load_rentals()
+
+
+@st.cache_data
+def load_tradeoff(checkin_type):
+    # Planned gaps are multiples of 30 min, so finer steps would repeat points
+    return tradeoff_curve(load_delay_data(), range(0, 361, 30), checkin_type)
 
 
 @st.cache_data
@@ -135,6 +143,7 @@ with tab1:
     st.caption(f"Simulating a {threshold}-minute minimum gap between consecutive rentals.")
 
     impact = simulate_buffer(rentals, threshold, checkin_type)
+    canceled = simulate_buffer(rentals, threshold, checkin_type, state="canceled")
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric(
@@ -147,16 +156,21 @@ with tab1:
     col2.metric(
         "Rentals blocked (revenue at risk)",
         f"{impact['blocked_share']:.1f}%",
-        delta=f"{impact['blocked']} of {impact['ended']:,} rentals",
+        delta=f"{impact['blocked']} of {impact['rentals']:,} rentals",
         delta_color="off",
         help="Share of all ended rentals that the buffer would prevent from being booked",
     )
     col3.metric("Conflicts remaining", impact["remaining"])
     col4.metric(
-        "Delays absorbed",
-        f"{late['absorbed_share']:.1f}%",
-        delta=f"{late['absorbed']:,} cases",
+        "Cancellations avoided",
+        f"{canceled['avoided']} of {canceled['conflicts']}",
+        delta=f"{canceled['conflict_share']:.0f}% vs. {impact['conflict_share']:.0f}% conflict rate",
         delta_color="off",
+        help=(
+            "Canceled bookings whose previous rental ran over the planned gap, and which the buffer "
+            "would prevent. The delta compares how often canceled and ended rentals that follow "
+            "another rental were hit by a late return."
+        ),
     )
 
     with st.expander("ℹ️ How is the impact computed?"):
@@ -167,9 +181,55 @@ with tab1:
             - **Buffer rule**: bookings with a planned gap shorter than the buffer are not allowed.
               This prevents the conflicts on those bookings, but also blocks the bookings themselves.
             - **Rentals blocked** is computed on all ended rentals, as a proxy for revenue at risk.
+            - **Cancellations avoided**: canceled bookings that followed a late return. They are
+              likely conflicts that ended in a cancellation, kept apart from the headline figures
+              because the reason for a cancellation is not recorded.
             - Figures use the raw rental export: missing delays are left out, long delays are kept as is.
             """
         )
+
+    # Trade-off curve: one point per buffer length, for all cars and for Connect cars
+    fig_tradeoff = go.Figure()
+    for label, scope_type, color in [("All cars", None, "#2980b9"), ("Connect only", "connect", "#1abc9c")]:
+        curve = load_tradeoff(scope_type)
+        fig_tradeoff.add_trace(
+            go.Scatter(
+                x=curve["blocked_share"],
+                y=curve["avoided_share"],
+                mode="lines+markers",
+                name=label,
+                line={"color": color},
+                customdata=curve["threshold"],
+                hovertemplate="%{customdata} min buffer<br>%{y:.0f}% of conflicts avoided"
+                "<br>%{x:.1f}% of rentals blocked<extra>" + label + "</extra>",
+            )
+        )
+        current = simulate_buffer(rentals, threshold, scope_type)
+        fig_tradeoff.add_trace(
+            go.Scatter(
+                x=[current["blocked_share"]],
+                y=[current["avoided_share"]],
+                mode="markers+text",
+                marker={"size": 14, "color": color, "line": {"width": 2, "color": "white"}},
+                text=[f"{threshold} min"],
+                textposition="top left",
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+    fig_tradeoff.update_layout(
+        title="Trade-off: conflicts avoided vs. rentals blocked (buffers of 0 to 6 hours)",
+        xaxis_title="Rentals blocked (%)",
+        yaxis_title="Conflicts avoided (%)",
+        yaxis_range=[0, 105],
+        legend={"orientation": "h", "y": -0.2},
+    )
+    st.plotly_chart(fig_tradeoff, width="stretch")
+    st.caption(
+        "Each point is a buffer length, every 30 minutes; the large dot is the buffer selected in the sidebar. "
+        "The first hour brings most of the gain, then each extra 30 minutes avoids fewer conflicts "
+        "for more blocked rentals. The same buffer blocks about twice the share of Connect rentals."
+    )
 
     col_a, col_b = st.columns(2)
     with col_a:

@@ -30,6 +30,7 @@ def test_headline_metrics():
     at = run_app()
     assert metric(at, "Conflicts avoided").value == "70%"
     assert metric(at, "Rentals blocked (revenue at risk)").value == "2.0%"
+    assert metric(at, "Cancellations avoided").value == "19 of 37"
 
 
 @pytest.mark.parametrize("scope", ["All", "Connect only"])
