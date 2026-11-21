@@ -10,6 +10,8 @@ import pandas as pd
 import plotly.express as px
 import requests
 
+from delay import DELAY, GAP, filter_scope, late_return_stats, load_rentals, simulate_buffer
+
 st.set_page_config(page_title="Getaround Dashboard", layout="wide", page_icon="🚗")
 
 st.markdown(
@@ -30,54 +32,7 @@ API_URL = os.environ.get("API_URL", "http://localhost:8001/predict")
 
 @st.cache_data
 def load_delay_data():
-    df = pd.read_csv("data/get_around_delay_analysis.csv")
-    return df[df["state"] == "ended"].dropna(
-        subset=[
-            "delay_at_checkout_in_minutes",
-            "time_delta_with_previous_rental_in_minutes",
-        ]
-    )
-
-
-@st.cache_data
-def load_raw_delay_data():
-    return pd.read_csv("data/get_around_delay_analysis.csv")
-
-
-def simulate_buffer(raw, threshold, checkin_type=None):
-    """Simulate a minimum gap of `threshold` minutes between consecutive rentals.
-
-    A conflict happens when the previous rental of the same car is returned
-    later than the planned gap before the next rental starts. Enforcing the
-    buffer blocks every booking whose planned gap is shorter than `threshold`:
-    this removes those conflicts, but also those rentals (revenue at risk).
-    """
-    previous_delay = raw.set_index("rental_id")["delay_at_checkout_in_minutes"]
-
-    ended = raw[raw["state"] == "ended"]
-    if checkin_type is not None:
-        ended = ended[ended["checkin_type"] == checkin_type]
-
-    chained = ended.dropna(
-        subset=["previous_ended_rental_id", "time_delta_with_previous_rental_in_minutes"]
-    ).copy()
-    chained["previous_delay"] = chained["previous_ended_rental_id"].map(previous_delay)
-    chained = chained.dropna(subset=["previous_delay"])
-
-    gap = chained["time_delta_with_previous_rental_in_minutes"]
-    conflicts = chained[chained["previous_delay"] > gap]
-    avoided = conflicts[conflicts["time_delta_with_previous_rental_in_minutes"] < threshold]
-    blocked = chained[gap < threshold]
-
-    return {
-        "ended": len(ended),
-        "conflicts": len(conflicts),
-        "avoided": len(avoided),
-        "remaining": len(conflicts) - len(avoided),
-        "avoided_share": 100 * len(avoided) / len(conflicts) if len(conflicts) else 0,
-        "blocked": len(blocked),
-        "blocked_share": 100 * len(blocked) / len(ended) if len(ended) else 0,
-    }
+    return load_rentals()
 
 
 @st.cache_data
@@ -95,71 +50,60 @@ with tab1:
     st.header("⏱️ Delay Analysis")
     st.caption("How often do renters return cars late, and what buffer time minimizes conflicts?")
 
-    df = load_delay_data().copy()
-    df["delay_at_checkout_in_minutes"] = df["delay_at_checkout_in_minutes"].astype(int)
-    df["time_delta_with_previous_rental_in_minutes"] = df[
-        "time_delta_with_previous_rental_in_minutes"
-    ].astype(int)
+    rentals = load_delay_data()
 
     st.sidebar.header("Delay Filters")
     threshold = st.sidebar.slider(
         "⏱️ Minimum time between rentals (min)", 0, 180, 60, step=15
     )
     scope = st.sidebar.radio("🔐 Check-in type", ["All", "Connect only"])
-    if scope == "Connect only":
-        df = df[df["checkin_type"] == "connect"]
+    checkin_type = "connect" if scope == "Connect only" else None
+    df = filter_scope(rentals, checkin_type)
 
-    late_returns = df[df["delay_at_checkout_in_minutes"] > 0]
-    absorbed_cases = late_returns[
-        late_returns["delay_at_checkout_in_minutes"] <= threshold
-    ]
-    absorbed_share = (
-        len(absorbed_cases) / len(late_returns) * 100 if len(late_returns) > 0 else 0
-    )
+    late = late_return_stats(rentals, threshold, checkin_type)
 
     col1, col2, col3 = st.columns(3)
     col1.metric(
         "Late returns",
-        len(late_returns),
-        help="Rentals where the car was returned after the scheduled checkout time",
+        f"{late['late']:,}",
+        delta=f"{late['late_share']:.0f}% of ended rentals",
+        delta_color="off",
+        help="Ended rentals where the car was returned after the scheduled checkout time",
     )
-    col2.metric(f"Absorbed (≤ {threshold} min)", len(absorbed_cases))
-    col3.metric("% of delays absorbed", f"{absorbed_share:.1f}%")
+    col2.metric(f"Absorbed (≤ {threshold} min)", f"{late['absorbed']:,}")
+    col3.metric("% of delays absorbed", f"{late['absorbed_share']:.1f}%")
 
     with st.expander("ℹ️ What do these metrics mean?"):
         st.write(
             f"""
-            - **Late returns**: rentals with a return delay > 0 min.
+            - **Late returns**: ended rentals with a known return delay above 0 min.
             - **Absorbed**: late returns of at most {threshold} min, which the buffer would cover.
             - **% absorbed**: share of late returns covered by the buffer.
             """
         )
 
-    sentinel_count = (late_returns["delay_at_checkout_in_minutes"] == 126).sum()
-    hist_df = late_returns[late_returns["delay_at_checkout_in_minutes"] != 126]
+    late_returns = df[df[DELAY] > 0]
+    hist_max = 12 * 60
+    beyond = (late_returns[DELAY] > hist_max).sum()
     fig_hist = px.histogram(
-        hist_df,
-        x="delay_at_checkout_in_minutes",
-        nbins=40,
-        title="Distribution of checkout delays",
-        labels={"delay_at_checkout_in_minutes": "Delay (minutes)"},
+        late_returns[late_returns[DELAY] <= hist_max],
+        x=DELAY,
+        nbins=48,
+        title="Distribution of checkout delays (late returns up to 12 hours)",
+        labels={DELAY: "Delay (minutes)"},
         color_discrete_sequence=["#2980b9"],
     )
     fig_hist.update_layout(bargap=0.05)
-    st.plotly_chart(fig_hist, use_container_width=True)
+    st.plotly_chart(fig_hist, width="stretch")
     st.caption(
-        f"⚠️ {sentinel_count:,} rentals encoded as exactly 126 min are excluded, "
-        "this appears to be a sentinel value for delays above 2 hours in the source data."
+        f"{beyond:,} late returns above 12 hours are not shown, so the chart stays readable. "
+        "They are still counted in every metric."
     )
 
     st.subheader("Business Impact")
     st.caption(f"Simulating a {threshold}-minute minimum gap between consecutive rentals.")
 
-    impact = simulate_buffer(
-        load_raw_delay_data(),
-        threshold,
-        "connect" if scope == "Connect only" else None,
-    )
+    impact = simulate_buffer(rentals, threshold, checkin_type)
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric(
@@ -172,15 +116,15 @@ with tab1:
     col2.metric(
         "Rentals blocked (revenue at risk)",
         f"{impact['blocked_share']:.1f}%",
-        delta=f"{impact['blocked']} of {impact['ended']} rentals",
+        delta=f"{impact['blocked']} of {impact['ended']:,} rentals",
         delta_color="off",
         help="Share of all ended rentals that the buffer would prevent from being booked",
     )
-    col3.metric("Conflicts remaining", impact["remaining"], delta_color="off")
+    col3.metric("Conflicts remaining", impact["remaining"])
     col4.metric(
         "Delays absorbed",
-        f"{absorbed_share:.1f}%",
-        delta=f"{len(absorbed_cases)} cases",
+        f"{late['absorbed_share']:.1f}%",
+        delta=f"{late['absorbed']:,} cases",
         delta_color="off",
     )
 
@@ -192,17 +136,18 @@ with tab1:
             - **Buffer rule**: bookings with a planned gap shorter than the buffer are not allowed.
               This prevents the conflicts on those bookings, but also blocks the bookings themselves.
             - **Rentals blocked** is computed on all ended rentals, as a proxy for revenue at risk.
+            - Figures use the raw rental export: missing delays are left out, long delays are kept as is.
             """
         )
 
     col_a, col_b = st.columns(2)
     with col_a:
         fig_gap = px.histogram(
-            df,
-            x="time_delta_with_previous_rental_in_minutes",
+            df.dropna(subset=[GAP]),
+            x=GAP,
             nbins=50,
             title="Time gap between consecutive rentals",
-            labels={"time_delta_with_previous_rental_in_minutes": "Time gap (minutes)"},
+            labels={GAP: "Time gap (minutes)"},
             color_discrete_sequence=["#1abc9c"],
         )
         fig_gap.add_vline(
@@ -211,32 +156,25 @@ with tab1:
             line_color="red",
             annotation_text=f"{threshold} min buffer",
         )
-        st.plotly_chart(fig_gap, use_container_width=True)
+        st.plotly_chart(fig_gap, width="stretch")
 
     with col_b:
-        filtered_df = df[
-            (df["delay_at_checkout_in_minutes"] > 0)
-            & (df["delay_at_checkout_in_minutes"] < 120)
-        ]
         fig_box = px.box(
-            filtered_df,
+            late_returns[late_returns[DELAY] < 120],
             x="checkin_type",
-            y="delay_at_checkout_in_minutes",
+            y=DELAY,
             points=False,
             color="checkin_type",
             color_discrete_map={"connect": "#2980b9", "mobile": "#1abc9c"},
-            title="Delay by check-in type (under 2 hours)",
-            labels={
-                "delay_at_checkout_in_minutes": "Delay (minutes)",
-                "checkin_type": "Check-in type",
-            },
+            title="Delay by check-in type (late returns under 2 hours)",
+            labels={DELAY: "Delay (minutes)", "checkin_type": "Check-in type"},
         )
-        st.plotly_chart(fig_box, use_container_width=True)
+        st.plotly_chart(fig_box, width="stretch")
 
     st.download_button(
-        "📥 Download filtered delay data",
-        filtered_df.to_csv(index=False).encode(),
-        "filtered_delays.csv",
+        "📥 Download late returns",
+        late_returns.to_csv(index=False).encode(),
+        "late_returns.csv",
     )
 
 # ── Tab 2: Pricing Analysis ────────────────────────────────────────────────────
@@ -265,7 +203,7 @@ with tab2:
             color_discrete_sequence=["#2980b9"],
         )
         fig_km.update_xaxes(tickformat=",d")
-        st.plotly_chart(fig_km, use_container_width=True)
+        st.plotly_chart(fig_km, width="stretch")
 
     with col_b:
         fig_price_dist = px.histogram(
@@ -276,7 +214,7 @@ with tab2:
             labels={"rental_price_per_day": "Price per day (€)"},
             color_discrete_sequence=["#27ae60"],
         )
-        st.plotly_chart(fig_price_dist, use_container_width=True)
+        st.plotly_chart(fig_price_dist, width="stretch")
 
     fig_scatter = px.scatter(
         df_price,
@@ -292,7 +230,7 @@ with tab2:
         },
     )
     fig_scatter.update_xaxes(tickformat=",d")
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    st.plotly_chart(fig_scatter, width="stretch")
 
     col_c, col_d = st.columns(2)
     with col_c:
@@ -313,7 +251,7 @@ with tab2:
             color_continuous_scale="blues",
         )
         fig_type.update_layout(coloraxis_showscale=False)
-        st.plotly_chart(fig_type, use_container_width=True)
+        st.plotly_chart(fig_type, width="stretch")
 
     with col_d:
         avg_price_fuel = (
@@ -333,7 +271,7 @@ with tab2:
             color_continuous_scale="teal",
         )
         fig_fuel.update_layout(coloraxis_showscale=False)
-        st.plotly_chart(fig_fuel, use_container_width=True)
+        st.plotly_chart(fig_fuel, width="stretch")
 
     st.caption("Source: get_around_pricing_project.csv")
 
@@ -373,7 +311,7 @@ with tab3:
             has_speed_regulator = st.checkbox("Speed regulator", value=False)
             winter_tires = st.checkbox("Winter tires", value=True)
 
-        submit = st.form_submit_button("🔮 Predict price", use_container_width=True)
+        submit = st.form_submit_button("🔮 Predict price", width="stretch")
 
     if submit:
         input_data = {
