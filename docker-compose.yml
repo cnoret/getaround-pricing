@@ -7,7 +7,6 @@ services:
       - ./mlruns:/app/mlruns
       - ./data:/app/data
       - ./ml:/app/ml
-      - ./ml/model:/app/model
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
     command: python ml/model_training.py
@@ -26,6 +25,9 @@ services:
       dockerfile: Dockerfile.fastapi
     ports:
       - "8001:8001"
+    volumes:
+      # Model written by the train service
+      - ./ml/model:/app/model:ro
     depends_on:
       train:
         condition: service_completed_successfully

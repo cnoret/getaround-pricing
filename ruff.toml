@@ -8,5 +8,5 @@ select = ["E", "F", "W", "B", "I"]
 ignore = ["E501"]
 
 [lint.isort]
-# Modules of api/ and dashboard/, imported by bare name (see pytest.ini)
-known-first-party = ["delay", "main", "tests"]
+# Modules of api/ and dashboard/ (imported by bare name, see pytest.ini), plus ml/ and tests/
+known-first-party = ["delay", "main", "ml", "tests"]

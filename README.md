@@ -6,10 +6,10 @@
 [![CI](https://github.com/cnoret/getaround-pricing/actions/workflows/tests.yml/badge.svg)](https://github.com/cnoret/getaround-pricing/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-Analysis-150458?logo=pandas&logoColor=white)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-Random%20Forest-F7931E?logo=scikitlearn&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-Gradient%20Boosting-F7931E?logo=scikitlearn&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-**How long should a car rest between two rentals, and what should it cost per day?** On 21,310 Getaround rentals, a 60-minute minimum gap prevents **70% of late-return conflicts** while blocking only **2.0% of rentals**. A Random Forest prices a car within **€10.7 on average**, half the error of a median-price baseline (€23.2). Delivered as a Streamlit dashboard and a FastAPI prediction service.
+**How long should a car rest between two rentals, and what should it cost per day?** On 21,310 Getaround rentals, a 60-minute minimum gap prevents **70% of late-return conflicts** while blocking only **2.0% of rentals**. A gradient boosting model prices a car within **€10.7 on average**, less than half the error of a median-price baseline (€23.5). Delivered as a Streamlit dashboard and a FastAPI prediction service.
 
 **Data:** 21,310 rentals · 8,143 cars · 2 check-in flows (mobile, Connect) · 58% of ended rentals returned late · 4,843 car listings · 28 brands · median price €119/day
 
@@ -48,13 +48,16 @@ A **conflict** is a rental whose previous rental, on the same car, came back lat
 
 ### Price prediction
 
-| Metric (20% holdout) | Random Forest | Median-price baseline |
-|----------------------|---------------|-----------------------|
-| MAE  | €10.68 | €23.20 |
-| RMSE | €16.73 | |
-| R²   | 0.734  | |
+| Metric | Gradient boosting | Median-price baseline |
+|--------|-------------------|-----------------------|
+| MAE, 5-fold CV on the training set | €10.71 ± 0.40 | |
+| MAE, 20% holdout | **€10.68** | €23.49 |
+| RMSE, 20% holdout | €16.61 | |
+| R², 20% holdout | 0.748 | |
 
-Engine power (43% of the forest's feature importance) and mileage (28%) drive the price; options, car type and brand each weigh a few percent. StandardScaler on numeric features (mileage, engine power), OneHotEncoder on categoricals (brand, fuel, color, car type), Random Forest of 100 trees, `random_state=42`.
+- **Engine power (39%) and mileage (26%) drive the price**, then brand (11%) and car type (8%); each option weighs 3% or less. Shares of permutation importance on the holdout.
+- **Model choice:** a `HistGradientBoostingRegressor` (500 iterations, learning rate 0.05) matches the earlier Random Forest's holdout MAE (€10.68) with a better R² (0.748 vs. 0.734), in a 1.8 MB file instead of 33 MB.
+- **Pipeline:** two impossible listings removed (negative mileage, zero engine power), one-hot encoding of brand, fuel, color and car type, with brands seen fewer than 5 times grouped, numeric and boolean features passed as they are, `random_state=42`.
 
 ---
 
@@ -64,7 +67,7 @@ Engine power (43% of the forest's feature importance) and mileage (28%) drive th
 |------|---------|
 | **Dashboard** (Streamlit · Plotly) | *Delay Analysis*: late-return distribution, buffer simulation with a threshold slider and a Connect-only filter, conflicts avoided vs. rentals blocked. *Pricing Analysis*: KPIs and price distributions by mileage, fuel and car type. *Price Prediction*: form wired to the API, estimate vs. platform average. If the API does not answer, the dashboard falls back to the same saved model, so the form always works. |
 | **API** (FastAPI · Pydantic v2) | `POST /predict` for one or several cars, `GET /health`, Swagger UI at `/docs`. Every categorical field is a `Literal`, numeric fields have bounds. |
-| **Training** (scikit-learn · MLflow) | `ml/model_training.py` trains the pipeline, logs metrics and the model to MLflow, and saves `ml/model/model.joblib`. |
+| **Training** (scikit-learn · MLflow) | `ml/model_training.py` cleans the listings, cross-validates and trains the pipeline, scores it against a median-price baseline, logs metrics and the model to MLflow, and saves `ml/model/model.joblib`. |
 | **Notebooks** | [eda_delay.ipynb](notebooks/eda_delay.ipynb): delay distribution, missing values, outliers. [eda_pricing.ipynb](notebooks/eda_pricing.ipynb): pricing distributions and correlations. |
 
 ## Tech stack
@@ -72,7 +75,7 @@ Engine power (43% of the forest's feature importance) and mileage (28%) drive th
 | Layer | Libraries |
 |-------|-----------|
 | Data | Pandas · openpyxl |
-| ML | scikit-learn (RandomForest, Pipeline, ColumnTransformer) · Joblib |
+| ML | scikit-learn (HistGradientBoosting, Pipeline, ColumnTransformer, permutation importance) · Joblib |
 | Experiment tracking | MLflow |
 | API | FastAPI · Pydantic v2 · Uvicorn |
 | Dashboard | Streamlit · Plotly |
@@ -93,7 +96,7 @@ docker compose up --build
 | API + Swagger UI | [localhost:8001/docs](http://localhost:8001/docs) |
 | MLflow UI | [localhost:5001](http://localhost:5001) |
 
-Docker Compose trains the model first (`condition: service_completed_successfully`), then starts the API and the dashboard, which reaches the API through the `API_URL` environment variable. Without `API_URL`, the dashboard predicts with `ml/model/model.joblib` directly.
+Docker Compose trains the model first (`condition: service_completed_successfully`), then starts the API, which loads the freshly trained `ml/model/model.joblib`, and the dashboard, which reaches the API through the `API_URL` environment variable. Without `API_URL`, the dashboard predicts with `ml/model/model.joblib` directly.
 
 ### Run locally without Docker
 
@@ -122,7 +125,7 @@ ruff check .
 python -m pytest
 ```
 
-45 tests in about 30 seconds: API routes and validation (with a mocked model), a sanity check of the saved model, the buffer simulation on synthetic and real data (including the figures quoted above), and the dashboard run with Streamlit AppTest for every filter and for the prediction form (through the API, with the local model, and with the API down). The **Tests** workflow runs `pip check`, ruff and pytest on Python 3.12 on every push and pull request.
+49 tests in about 40 seconds: API routes and validation (with a mocked model), a sanity check of the saved model, the training pipeline (data cleaning, unseen brands, beating the median baseline), the buffer simulation on synthetic and real data (including the figures quoted above), and the dashboard run with Streamlit AppTest for every filter and for the prediction form (through the API, with the local model, and with the API down). The **Tests** workflow runs `pip check`, ruff and pytest on Python 3.12 on every push and pull request.
 
 ### Retrain
 
@@ -131,7 +134,7 @@ pip install -r ml/requirements.txt
 python ml/model_training.py
 ```
 
-Metrics and artifacts are tracked in MLflow (`./mlruns`).
+The script runs from any folder, prints the cross-validated and holdout metrics with the permutation importance, and tracks metrics and artifacts in MLflow (`./mlruns`, browse with `mlflow ui`).
 
 ---
 
