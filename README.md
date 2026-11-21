@@ -44,6 +44,8 @@ A **conflict** is a rental whose previous rental, on the same car, came back lat
 - **58% of ended rentals are returned late** (9,404 of 16,345 with a known delay), but conflicts are rare: only 1,612 ended rentals were booked less than 12 hours after the previous rental of the same car, and 181 of them were hit by a late return.
 - **60 minutes is the knee of the curve**: it avoids most conflicts for 2% of rentals. Going to 120 minutes adds 15 points of avoided conflicts but blocks 65% more rentals.
 - **Connect cars carry a higher cost**: 19% of their rentals follow another one within 12 hours (6% for mobile check-in), so the same buffer blocks twice the share of their rentals (4.4% vs. 2.0%) for a few more points of conflicts avoided (76% vs. 70%).
+- **Apply it to all cars, not only Connect**: Connect cars hold only 50 of the 181 conflicts, so a Connect-only buffer would leave most of them in place.
+- **Late returns likely drive cancellations too**: 37 canceled bookings followed a previous rental that ran over the planned gap. That is 18% of canceled bookings with a known previous delay, against 12% for ended rentals. A 60-minute buffer would have prevented 19 of them. The reason for a cancellation is not recorded, so they stay out of the headline figures.
 - All figures use the **raw rental export**: missing delays are left out and long delays are kept as they are, so no conflict is hidden by cleaning.
 
 ### Price prediction
@@ -65,10 +67,10 @@ A **conflict** is a rental whose previous rental, on the same car, came back lat
 
 | Part | Content |
 |------|---------|
-| **Dashboard** (Streamlit · Plotly) | *Delay Analysis*: late-return distribution, buffer simulation with a threshold slider and a Connect-only filter, conflicts avoided vs. rentals blocked. *Pricing Analysis*: KPIs and price distributions by mileage, fuel and car type. *Price Prediction*: form wired to the API, estimate vs. platform average. If the API does not answer, the dashboard falls back to the same saved model, so the form always works. |
+| **Dashboard** (Streamlit · Plotly) | *Delay Analysis*: late-return distribution, buffer simulation with a threshold slider and a Connect-only filter, conflicts avoided vs. rentals blocked, cancellations after a late return, and the trade-off curve across buffer lengths for all cars and Connect cars. *Pricing Analysis*: KPIs and price distributions by mileage, fuel and car type. *Price Prediction*: form wired to the API, estimate vs. platform average. If the API does not answer, the dashboard falls back to the same saved model, so the form always works. |
 | **API** (FastAPI · Pydantic v2) | `POST /predict` for one or several cars, `GET /health`, Swagger UI at `/docs`. Every categorical field is a `Literal`, numeric fields have bounds. |
 | **Training** (scikit-learn · MLflow) | `ml/model_training.py` cleans the listings, cross-validates and trains the pipeline, scores it against a median-price baseline, logs metrics and the model to MLflow, and saves `ml/model/model.joblib`. |
-| **Notebooks** | [eda_delay.ipynb](notebooks/eda_delay.ipynb): delay distribution, missing values, outliers. [eda_pricing.ipynb](notebooks/eda_pricing.ipynb): pricing distributions and correlations. |
+| **Notebooks** | [eda_delay.ipynb](notebooks/eda_delay.ipynb): buffer trade-off on the raw data, cancellations after a late return, delay distributions, key takeaways. [eda_pricing.ipynb](notebooks/eda_pricing.ipynb): price distributions and drivers, data quality, key takeaways. |
 
 ## Tech stack
 
@@ -125,7 +127,7 @@ ruff check .
 python -m pytest
 ```
 
-49 tests in about 40 seconds: API routes and validation (with a mocked model), a sanity check of the saved model, the training pipeline (data cleaning, unseen brands, beating the median baseline), the buffer simulation on synthetic and real data (including the figures quoted above), and the dashboard run with Streamlit AppTest for every filter and for the prediction form (through the API, with the local model, and with the API down). The **Tests** workflow runs `pip check`, ruff and pytest on Python 3.12 on every push and pull request.
+52 tests in about 40 seconds: API routes and validation (with a mocked model), a sanity check of the saved model, the training pipeline (data cleaning, unseen brands, beating the median baseline), the buffer simulation and the trade-off curve on synthetic and real data (including the figures quoted above, cancellations too), and the dashboard run with Streamlit AppTest for every filter and for the prediction form (through the API, with the local model, and with the API down). The **Tests** workflow runs `pip check`, ruff and pytest on Python 3.12 on every push and pull request.
 
 ### Retrain
 

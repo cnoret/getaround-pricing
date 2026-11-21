@@ -3,7 +3,13 @@
 import pandas as pd
 import pytest
 
-from delay import filter_scope, late_return_stats, load_rentals, simulate_buffer
+from delay import (
+    filter_scope,
+    late_return_stats,
+    load_rentals,
+    simulate_buffer,
+    tradeoff_curve,
+)
 
 
 def rentals(rows):
@@ -22,7 +28,8 @@ def rentals(rows):
 # Car 1: rental 2 starts 30 min after rental 1, which came back 45 min late -> conflict.
 # Car 2: rental 4 starts 120 min after rental 3, which came back 10 min late -> no conflict.
 # Car 3: rental 6 follows rental 5 (unknown delay) after 20 min -> blocked, conflict unknown.
-# Rental 7 was canceled and is ignored.
+# Rental 7 was canceled with no previous rental.
+# Rental 8 was canceled 30 min after rental 1, which came back 45 min late -> canceled conflict.
 SAMPLE = rentals(
     [
         (1, 1, "mobile", "ended", 45, None, None),
@@ -32,6 +39,7 @@ SAMPLE = rentals(
         (5, 3, "connect", "ended", None, None, None),
         (6, 3, "connect", "ended", 0, 5, 20),
         (7, 4, "mobile", "canceled", None, None, None),
+        (8, 1, "mobile", "canceled", None, 1, 30),
     ]
 )
 
@@ -74,7 +82,7 @@ def test_short_buffer_leaves_the_conflict():
 
 def test_scope_filters_conflicts():
     impact = simulate_buffer(SAMPLE, threshold=60, checkin_type="connect")
-    assert impact["ended"] == 4
+    assert impact["rentals"] == 4
     assert impact["conflicts"] == 0
     assert impact["blocked"] == 1
 
@@ -97,3 +105,28 @@ def test_headline_figures_on_raw_data():
     assert round(impact["avoided_share"]) == 70
     assert impact["blocked"] == 358
     assert round(impact["blocked_share"], 1) == 2.0
+
+
+def test_canceled_rentals_are_counted_apart():
+    impact = simulate_buffer(SAMPLE, threshold=60, state="canceled")
+    assert impact["rentals"] == 2
+    assert impact["conflicts"] == impact["avoided"] == 1
+    assert impact["blocked"] == 1
+    # The ended rentals are unchanged by the canceled ones
+    assert simulate_buffer(SAMPLE, threshold=60)["conflicts"] == 1
+
+
+def test_tradeoff_curve_matches_simulation():
+    curve = tradeoff_curve(SAMPLE, thresholds=[0, 60])
+    assert list(curve["threshold"]) == [0, 60]
+    assert curve.iloc[1]["avoided_share"] == simulate_buffer(SAMPLE, 60)["avoided_share"]
+    assert curve["blocked_share"].is_monotonic_increasing
+
+
+def test_canceled_figures_on_raw_data():
+    """Quoted in the README: canceled bookings that followed a late return, 60-min buffer."""
+    raw = load_rentals()
+    canceled = simulate_buffer(raw, threshold=60, state="canceled")
+    assert (canceled["avoided"], canceled["conflicts"]) == (19, 37)
+    assert round(canceled["conflict_share"]) == 18
+    assert round(simulate_buffer(raw, threshold=60)["conflict_share"]) == 12

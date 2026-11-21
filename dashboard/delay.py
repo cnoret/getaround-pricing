@@ -23,12 +23,12 @@ def load_rentals(path=RAW_DELAY_PATH):
     return pd.read_excel(path, sheet_name="rentals_data")
 
 
-def filter_scope(rentals, checkin_type=None):
-    """Keep ended rentals, optionally for one check-in type ("connect" or "mobile")."""
-    ended = rentals[rentals["state"] == "ended"]
+def filter_scope(rentals, checkin_type=None, state="ended"):
+    """Rentals in one state ("ended" or "canceled"), optionally for one check-in type."""
+    scoped = rentals[rentals["state"] == state]
     if checkin_type is not None:
-        ended = ended[ended["checkin_type"] == checkin_type]
-    return ended
+        scoped = scoped[scoped["checkin_type"] == checkin_type]
+    return scoped
 
 
 def late_return_stats(rentals, threshold, checkin_type=None):
@@ -50,18 +50,21 @@ def late_return_stats(rentals, threshold, checkin_type=None):
     }
 
 
-def simulate_buffer(rentals, threshold, checkin_type=None):
+def simulate_buffer(rentals, threshold, checkin_type=None, state="ended"):
     """Simulate a minimum gap of `threshold` minutes between consecutive rentals.
 
     A conflict happens when the previous rental of the same car is returned
     later than the planned gap before the next rental starts. Enforcing the
     buffer blocks every booking whose planned gap is shorter than `threshold`:
     this removes those conflicts, but also those rentals (revenue at risk).
+
+    With state="canceled", the same counts apply to canceled rentals: a
+    conflict there is a booking canceled after the previous renter ran late.
     """
     previous_delay = rentals.set_index("rental_id")[DELAY]
 
-    ended = filter_scope(rentals, checkin_type)
-    chained = ended.dropna(subset=[PREVIOUS, GAP]).copy()
+    scoped = filter_scope(rentals, checkin_type, state)
+    chained = scoped.dropna(subset=[PREVIOUS, GAP]).copy()
     blocked = chained[chained[GAP] < threshold]
 
     chained["previous_delay"] = chained[PREVIOUS].map(previous_delay)
@@ -70,12 +73,28 @@ def simulate_buffer(rentals, threshold, checkin_type=None):
     avoided = conflicts[conflicts[GAP] < threshold]
 
     return {
-        "ended": len(ended),
+        "rentals": len(scoped),
         "chained": len(chained),
         "conflicts": len(conflicts),
         "avoided": len(avoided),
         "remaining": len(conflicts) - len(avoided),
         "avoided_share": 100 * len(avoided) / len(conflicts) if len(conflicts) else 0,
         "blocked": len(blocked),
-        "blocked_share": 100 * len(blocked) / len(ended) if len(ended) else 0,
+        "blocked_share": 100 * len(blocked) / len(scoped) if len(scoped) else 0,
+        "conflict_share": 100 * len(conflicts) / len(known) if len(known) else 0,
     }
+
+
+def tradeoff_curve(rentals, thresholds=range(0, 361, 30), checkin_type=None):
+    """Conflicts avoided vs. rentals blocked for each buffer length (ended rentals)."""
+    rows = []
+    for threshold in thresholds:
+        impact = simulate_buffer(rentals, threshold, checkin_type)
+        rows.append(
+            {
+                "threshold": threshold,
+                "avoided_share": impact["avoided_share"],
+                "blocked_share": impact["blocked_share"],
+            }
+        )
+    return pd.DataFrame(rows)
