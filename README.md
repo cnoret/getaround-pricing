@@ -54,7 +54,7 @@ A **conflict** is a rental whose previous rental, on the same car, came back lat
 | RMSE | €16.73 | |
 | R²   | 0.734  | |
 
-Engine power, car type and brand drive the price. StandardScaler on numeric features (mileage, engine power), OneHotEncoder on categoricals (brand, fuel, color, car type), Random Forest of 100 trees, `random_state=42`.
+Engine power (43% of the forest's feature importance) and mileage (28%) drive the price; options, car type and brand each weigh a few percent. StandardScaler on numeric features (mileage, engine power), OneHotEncoder on categoricals (brand, fuel, color, car type), Random Forest of 100 trees, `random_state=42`.
 
 ---
 
