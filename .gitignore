@@ -1,5 +1,5 @@
 # ─── Model artifacts ─────────────────────────────────────────────────────────
-# Both models are pre-trained and committed (LR: 1.5KB, RF: 2.7MB)
+# The trained pipeline (ml/model/model.joblib, ~33 MB) is committed so the API runs without retraining
 
 # ─── Python ──────────────────────────────────────────────────────────────────
 __pycache__/

@@ -1,11 +1,13 @@
-import sys
-from pathlib import Path
-import numpy as np
-import pytest
-from unittest.mock import MagicMock, patch
-from fastapi.testclient import TestClient
+"""FastAPI prediction API: routes and input validation (model mocked), plus the saved model."""
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+import sys
+from unittest.mock import MagicMock, patch
+
+import joblib
+import numpy as np
+import pandas as pd
+import pytest
+from fastapi.testclient import TestClient
 
 VALID_CAR = {
     "mileage": 140000,
@@ -97,3 +99,26 @@ def test_predict_empty_input(client):
     response = client.post("/predict", json={"input": []})
     assert response.status_code == 200
     assert response.json()["prediction"] == []
+
+
+def test_model_path_default_is_repo_model(monkeypatch):
+    monkeypatch.delenv("MODEL_PATH", raising=False)
+    from main import REPO_ROOT, model_path
+
+    assert model_path() == REPO_ROOT / "ml" / "model" / "model.joblib"
+
+
+def test_model_path_env_override(monkeypatch, tmp_path):
+    monkeypatch.setenv("MODEL_PATH", str(tmp_path / "other.joblib"))
+    from main import model_path
+
+    assert model_path() == tmp_path / "other.joblib"
+
+
+def test_saved_model_predicts_plausible_price():
+    """The committed pipeline loads and prices a typical car within the dataset range."""
+    from main import REPO_ROOT
+
+    pipeline = joblib.load(REPO_ROOT / "ml" / "model" / "model.joblib")
+    price = pipeline.predict(pd.DataFrame([VALID_CAR]))[0]
+    assert 10 <= price <= 422

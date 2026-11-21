@@ -1,9 +1,22 @@
+import os
+from pathlib import Path
 from typing import Literal
+
+import joblib
+import pandas as pd
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
-import joblib
-import pandas as pd
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def model_path():
+    """Saved pipeline: MODEL_PATH if set, else ml/model/ in the repo, else model/ (Docker image)."""
+    if "MODEL_PATH" in os.environ:
+        return Path(os.environ["MODEL_PATH"])
+    local = REPO_ROOT / "ml" / "model" / "model.joblib"
+    return local if local.exists() else Path("model/model.joblib")
 
 
 class CarFeatures(BaseModel):
@@ -36,7 +49,7 @@ app = FastAPI(
     version="1.0",
 )
 
-model = joblib.load("model/model.joblib")
+model = joblib.load(model_path())
 
 
 @app.get("/health")

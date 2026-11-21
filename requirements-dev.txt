@@ -1,0 +1,7 @@
+# API and dashboard dependencies, plus the test tools.
+# Model training (ml/requirements.txt, with MLflow) is not needed for the tests.
+-r api/requirements.txt
+-r dashboard/requirements.txt
+httpx==0.28.1
+pytest==9.2.0
+ruff==0.17.5

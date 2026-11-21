@@ -5,17 +5,18 @@ evaluates it, and logs the results to MLflow.
 """
 
 import os
-import numpy as np
-import pandas as pd
+
 import joblib
 import mlflow
-from sklearn.pipeline import Pipeline
+import numpy as np
+import pandas as pd
+from mlflow.models.signature import infer_signature
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from mlflow.models.signature import infer_signature
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 if __name__ == "__main__":
     # Load dataset
