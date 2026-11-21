@@ -1,0 +1,6 @@
+# Notebook dependencies (Colab already has them)
+pandas==2.3.3
+openpyxl==3.1.5
+matplotlib==3.11.2
+seaborn==0.13.2
+jupyter==1.1.1
