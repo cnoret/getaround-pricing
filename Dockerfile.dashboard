@@ -16,6 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application code
 COPY dashboard/ ./dashboard/
 COPY data/ ./data/
+# Saved model, used when the prediction API does not answer
+COPY ml/model/ ./ml/model/
 
 # Expose Streamlit default port
 EXPOSE 8501
