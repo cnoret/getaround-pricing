@@ -5,7 +5,9 @@ It uses Streamlit for the frontend and Plotly for visualizations.
 """
 
 import os
+from pathlib import Path
 
+import joblib
 import pandas as pd
 import plotly.express as px
 import requests
@@ -35,7 +37,28 @@ with st.sidebar:
     st.markdown("<h3>Getaround Dashboard</h3>", unsafe_allow_html=True)
     st.caption("Filter, explore and predict in a few clicks.")
 
-API_URL = os.environ.get("API_URL", "http://localhost:8001/predict")
+# Predictions go through the FastAPI service at API_URL (Docker Compose, or the API Space
+# set as a secret on Streamlit Community Cloud). If it is not set or does not answer,
+# the dashboard falls back to the saved model, so the form always works.
+API_URL = os.environ.get("API_URL")
+MODEL_PATH = Path(__file__).resolve().parent.parent / "ml" / "model" / "model.joblib"
+
+
+@st.cache_resource
+def load_model():
+    return joblib.load(MODEL_PATH)
+
+
+def predict_price(car):
+    """Predicted daily price for one car and where it came from ("api" or "local model")."""
+    if API_URL:
+        try:
+            response = requests.post(API_URL, json={"input": [car]}, timeout=10)
+            response.raise_for_status()
+            return response.json()["prediction"][0], "api"
+        except (requests.RequestException, ValueError, KeyError, IndexError):
+            pass
+    return float(load_model().predict(pd.DataFrame([car]))[0]), "local model"
 
 
 @st.cache_data
@@ -337,27 +360,24 @@ with tab3:
             "has_speed_regulator": has_speed_regulator,
             "winter_tires": winter_tires,
         }
-        try:
-            response = requests.post(API_URL, json={"input": [input_data]}, timeout=10)
-            if response.status_code == 200:
-                prediction = response.json()["prediction"][0]
-                avg_price = df_price["rental_price_per_day"].mean()
-                delta = prediction - avg_price
-                arrow = "▲" if delta >= 0 else "▼"
-                st.markdown(
-                    f"""
-                    <div style='text-align:center; padding:2rem 1rem; background:linear-gradient(135deg,#f0fff4,#e8f8f0); border-radius:16px; border:2px solid #1abc9c; margin:1.5rem 0;'>
-                        <p style='color:#888; font-size:1rem; margin-bottom:0.3rem;'>Estimated daily rental price</p>
-                        <p style='font-size:3.8rem; font-weight:800; color:#27ae60; margin:0; line-height:1.1;'>{prediction:.0f} €<span style='font-size:1.2rem; font-weight:400; color:#aaa;'> / day</span></p>
-                        <p style='color:#999; font-size:0.9rem; margin-top:0.6rem;'>Platform average: {avg_price:.0f} € &nbsp;·&nbsp; {arrow} {abs(delta):.0f} € vs. average</p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.error(f"API error {response.status_code}: {response.text}")
-        except Exception as e:
-            st.error(f"Could not reach the prediction API: {e}")
+        prediction, source = predict_price(input_data)
+        if API_URL and source != "api":
+            st.caption("The prediction API did not answer, so this estimate comes from the same model loaded in the dashboard.")
+        else:
+            st.caption(f"Estimate from the {'prediction API' if source == 'api' else 'saved model'}.")
+        avg_price = df_price["rental_price_per_day"].mean()
+        delta = prediction - avg_price
+        arrow = "▲" if delta >= 0 else "▼"
+        st.markdown(
+            f"""
+            <div style='text-align:center; padding:2rem 1rem; background:linear-gradient(135deg,#f0fff4,#e8f8f0); border-radius:16px; border:2px solid #1abc9c; margin:1.5rem 0;'>
+                <p style='color:#888; font-size:1rem; margin-bottom:0.3rem;'>Estimated daily rental price</p>
+                <p style='font-size:3.8rem; font-weight:800; color:#27ae60; margin:0; line-height:1.1;'>{prediction:.0f} €<span style='font-size:1.2rem; font-weight:400; color:#aaa;'> / day</span></p>
+                <p style='color:#999; font-size:0.9rem; margin-top:0.6rem;'>Platform average: {avg_price:.0f} € &nbsp;·&nbsp; {arrow} {abs(delta):.0f} € vs. average</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     with st.expander("ℹ️ About this model"):
         st.write(
